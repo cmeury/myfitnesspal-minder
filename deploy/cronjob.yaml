@@ -14,7 +14,7 @@ spec:
         spec:
           containers:
           - name: myfitnesspal-minder
-            image: gcr.io/apps-202322/github-cmeury-myfitnesspal-minder:67b713eba6bd9ca40a299875ba40be03519d93cb
+            image: gcr.io/apps-202322/github-cmeury-myfitnesspal-minder:74596ecafdb1870ca473d4b7478396bc23405da3
             env:
             - name: BM_GOAL
               value: "mfp-meals"
