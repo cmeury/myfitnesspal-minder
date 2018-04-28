@@ -68,7 +68,17 @@ client = myfitnesspal.Client(mfp_username, mfp_password)
 
 # Look up myfitnesspal meals entered today
 day = client.get_date(now.year, now.month, now.day)
-mfp_entered = max(len(meal.entries) for meal in day.meals)
+breakfast = day.meals[0]
+lunch = day.meals[1]
+dinner = day.meals[2]
+snacks = day.meals[3]
+mfp_entered = 0
+if len(breakfast.entries) > 0:
+    mfp_entered += 1
+if len(lunch.entries) > 0:
+    mfp_entered += 1
+if len(dinner.entries) > 0:
+    mfp_entered += 1
 logging.info("meals logged on mfp today (%s): %s", todaystamp, mfp_entered)
 
 # Look up beeminder data points today
