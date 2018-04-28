@@ -1,0 +1,43 @@
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: myfitnesspal-minder
+  namespace: mfp
+spec:
+  schedule: "0 * * * *"
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: myfitnesspal-minder
+        spec:
+          containers:
+          - name: myfitnesspal-minder
+            image: gcr.io/apps-202322/github-cmeury-myfitnesspal-minder:67b713eba6bd9ca40a299875ba40be03519d93cb
+            env:
+            - name: BM_GOAL
+              value: "myfitnesspal-test"
+            # - name: MFP_MINDER_DEBUG
+            #   value: "true"
+            - name: MFP_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: myfitnesspal-minder
+                  key: mfp-username
+            - name: MFP_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: myfitnesspal-minder
+                  key: mfp-password
+            - name: BM_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: myfitnesspal-minder
+                  key: bm-username
+            - name: BM_AUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: myfitnesspal-minder
+                  key: bm-auth-token
+          restartPolicy: OnFailure
