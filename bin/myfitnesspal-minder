@@ -11,6 +11,8 @@ import sys
 import os
 from collections import defaultdict
 
+import schedule
+import time
 import keyring
 import myfitnesspal
 import requests
@@ -30,8 +32,6 @@ mfp_password = os.environ.get('MFP_PASSWORD')
 bm_username = os.environ.get('BM_USERNAME')
 bm_auth_token = os.environ.get('BM_AUTH_TOKEN')
 bm_goal_name = os.environ.get('BM_GOAL')
-
-now = datetime.datetime.now()
 
 ### Validation
 
@@ -59,51 +59,59 @@ if not resp.ok:
     print("Beeminder goal seems missing: {}".format(resp))
     sys.exit()
 
-### Main Execution
+def start():
+    now = datetime.datetime.now()
+    todaystamp = now.strftime("%Y%m%d")
 
-todaystamp = now.strftime("%Y%m%d")
+    # Set up a myfitnesspal API client
+    client = myfitnesspal.Client(mfp_username, mfp_password)
 
-# Set up a myfitnesspal API client
-client = myfitnesspal.Client(mfp_username, mfp_password)
+    # Look up myfitnesspal meals entered today
+    day = client.get_date(now.year, now.month, now.day)
+    breakfast = day.meals[0]
+    lunch = day.meals[1]
+    dinner = day.meals[2]
+    snacks = day.meals[3]
+    mfp_entered = 0
+    if len(breakfast.entries) > 0:
+        mfp_entered += 1
+    if len(lunch.entries) > 0:
+        mfp_entered += 1
+    if len(dinner.entries) > 0:
+        mfp_entered += 1
+    logging.info("meals logged on mfp today (%s): %s", todaystamp, mfp_entered)
 
-# Look up myfitnesspal meals entered today
-day = client.get_date(now.year, now.month, now.day)
-breakfast = day.meals[0]
-lunch = day.meals[1]
-dinner = day.meals[2]
-snacks = day.meals[3]
-mfp_entered = 0
-if len(breakfast.entries) > 0:
-    mfp_entered += 1
-if len(lunch.entries) > 0:
-    mfp_entered += 1
-if len(dinner.entries) > 0:
-    mfp_entered += 1
-logging.info("meals logged on mfp today (%s): %s", todaystamp, mfp_entered)
+    # Look up beeminder data points today
+    results = requests.get(DATAPOINTS_URL.format(**locals())).json()
+    dps = defaultdict(list)
+    for dp in results:
+        dps[dp["daystamp"]].append(dp)
+    todays_dps = dps[todaystamp]
 
-# Look up beeminder data points today
-results = requests.get(DATAPOINTS_URL.format(**locals())).json()
-dps = defaultdict(list)
-for dp in results:
-    dps[dp["daystamp"]].append(dp)
-todays_dps = dps[todaystamp]
-
-if len(todays_dps) == 0:
-    logging.info("no data point so far today (%s)", todaystamp)
-    logging.info("adding data point '%d' to beeminder goal '%s'", mfp_entered, bm_goal_name)
-    requests.post(DATAPOINTS_URL.format(**locals()), data={
-        "value": mfp_entered,
-        "comment": "via MyFitnessPal scripting on {}".format(now.isoformat())})
-else:
-    bm_total_value_today = 0
-    for dp in todays_dps:
-        bm_total_value_today += dp["value"]
-    logging.info("beeminder goal '%s' has a total value of %d so far today (%s)", bm_goal_name, bm_total_value_today, todaystamp)
-    if mfp_entered > bm_total_value_today:
-        missing_meals = mfp_entered - bm_total_value_today
-        logging.info("adding data point '%d' to beeminder goal '%s'", missing_meals, bm_goal_name)
+    if len(todays_dps) == 0:
+        logging.info("no data point so far today (%s)", todaystamp)
+        logging.info("adding data point '%d' to beeminder goal '%s'", mfp_entered, bm_goal_name)
         requests.post(DATAPOINTS_URL.format(**locals()), data={
-            "value": missing_meals,
+            "value": mfp_entered,
             "comment": "via MyFitnessPal scripting on {}".format(now.isoformat())})
     else:
-        logging.info("values in mfp and beeminder match, not doing anything")
+        bm_total_value_today = 0
+        for dp in todays_dps:
+            bm_total_value_today += dp["value"]
+        logging.info("beeminder goal '%s' has a total value of %d so far today (%s)", bm_goal_name, bm_total_value_today, todaystamp)
+        if mfp_entered > bm_total_value_today:
+            missing_meals = mfp_entered - bm_total_value_today
+            logging.info("adding data point '%d' to beeminder goal '%s'", missing_meals, bm_goal_name)
+            requests.post(DATAPOINTS_URL.format(**locals()), data={
+                "value": missing_meals,
+                "comment": "via MyFitnessPal scripting on {}".format(now.isoformat())})
+        else:
+            logging.info("values in mfp and beeminder match, not doing anything")
+
+start()
+
+schedule.every(1).minutes.do(start)
+
+while True:
+    schedule.run_pending()
+    time.sleep(1)
