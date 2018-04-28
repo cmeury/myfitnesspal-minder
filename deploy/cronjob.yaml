@@ -17,7 +17,7 @@ spec:
             image: gcr.io/apps-202322/github-cmeury-myfitnesspal-minder:67b713eba6bd9ca40a299875ba40be03519d93cb
             env:
             - name: BM_GOAL
-              value: "myfitnesspal-test"
+              value: "mfp-meals"
             # - name: MFP_MINDER_DEBUG
             #   value: "true"
             - name: MFP_USERNAME
